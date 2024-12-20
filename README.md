@@ -107,6 +107,23 @@ If the database is not running, start it with:
 docker-compose up -d db
 ```
 
+#### Database Migration Issues
+
+If you see errors like "relation already exists" when running migrations, it might be because the database volume
+contains old data. You have two options:
+
+1. Complete reset (Development):
+   ```sh
+   docker compose down -v   # Remove all containers and volumes
+   docker compose up -d     # Start fresh
+   ```
+
+2. Clean migration (Production):
+   ```sh
+   docker exec -it rust-api-container diesel migration revert  # Revert last migration
+   docker exec -it rust-api-container diesel migration run     # Apply migration again
+   ```
+
 #### Viewing Logs
 
 To view logs for debugging:
@@ -123,6 +140,7 @@ The API provides a RESTful interface for interacting with the application. The s
 GET endpoints are typically used to retrieve resources.
 
 Example:
+
 ```
 GET /api/resource
 GET /api/resource/{id}
@@ -133,6 +151,7 @@ GET /api/resource/{id}
 POST endpoints are used to create new resources.
 
 Example:
+
 ```
 POST /api/resource
 ```
@@ -142,6 +161,7 @@ POST /api/resource
 PUT endpoints are used to update existing resources.
 
 Example:
+
 ```
 PUT /api/resource/{id}
 ```
@@ -151,6 +171,7 @@ PUT /api/resource/{id}
 DELETE endpoints are used to remove resources.
 
 Example:
+
 ```
 DELETE /api/resource/{id}
 ```

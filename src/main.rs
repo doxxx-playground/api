@@ -1,6 +1,8 @@
-use actix_web::{web, App, HttpServer};
+use actix_web::{web, App, HttpResponse, HttpServer, Responder};
+use api::metrics::PrometheusMetrics;
 use api::{db, handlers};
 use dotenvy::dotenv;
+use prometheus::{Encoder, TextEncoder};
 use std::env;
 
 #[actix_web::main]
@@ -18,12 +20,16 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("Failed to create DB pool");
 
+    let prometheus_metrics = PrometheusMetrics::new();
+
     println!("Starting server at http://{}:{}", host, port);
 
     HttpServer::new(move || {
         App::new()
+            .wrap(prometheus_metrics.clone()) // 미들웨어로 등록
             .app_data(web::Data::new(db_pool.clone()))
             .route("/health", web::get().to(handlers::health_check))
+            .route("/metrics", web::get().to(metrics_handler))
             .service(
                 web::scope("/items")
                     .route("", web::get().to(handlers::get_items))
@@ -36,4 +42,15 @@ async fn main() -> std::io::Result<()> {
     .bind((host, port))?
     .run()
     .await
+}
+
+async fn metrics_handler() -> impl Responder {
+    let encoder = TextEncoder::new();
+    let metric_families = prometheus::gather();
+    let mut buffer = vec![];
+    encoder.encode(&metric_families, &mut buffer).unwrap();
+
+    HttpResponse::Ok()
+        .content_type("text/plain")
+        .body(String::from_utf8(buffer).unwrap())
 }

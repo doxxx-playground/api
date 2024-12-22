@@ -16,6 +16,9 @@ containerized, allowing for consistent development and deployment across differe
     - `2024-12-20-124720_create_items/`: Migration for creating the 'items' table
         - `up.sql`: SQL for applying the migration
         - `down.sql`: SQL for reverting the migration
+    - `2024-12-22-064800_create_items/`: Additional migration for the 'items' table
+        - `up.sql`: SQL for applying the migration
+        - `down.sql`: SQL for reverting the migration
 - `src/`: Contains the Rust source code for the API
     - `main.rs`: Entry point of the application
     - `lib.rs`: Library module definitions
@@ -23,6 +26,10 @@ containerized, allowing for consistent development and deployment across differe
     - `handlers.rs`: Request handler functions
     - `models.rs`: Data models and structures
     - `schema.rs`: Database schema definitions
+    - `metrics.rs`: Metrics collection and reporting
+- `prometheus.yml`: Configuration file for Prometheus
+- `README2.md`: Additional README file
+- `TODO.md`: TODO list for the project
 
 ## Usage Instructions
 
@@ -189,7 +196,8 @@ The data flow in this application follows these steps:
 5. `db.rs` uses the connection pool to query the PostgreSQL database.
 6. The query results are mapped to Rust structures defined in `models.rs`.
 7. The handler processes the data and prepares the response.
-8. The response is sent back to the client.
+8. Metrics are collected and reported using functions from `metrics.rs`.
+9. The response is sent back to the client.
 
 ```
 [Client] <-> [Rust Web Server] <-> [Handlers] <-> [Database Functions] <-> [PostgreSQL]
@@ -197,6 +205,10 @@ The data flow in this application follows these steps:
                                       |                 |
                                       v                 v
                                  [Models]           [Schema]
+                                      ^
+                                      |
+                                      v
+                                 [Metrics]
 ```
 
 Note: Ensure proper error handling and logging throughout this flow for robust operation.
@@ -217,14 +229,36 @@ The project uses Docker Compose to define and manage the infrastructure. The mai
 - **Port Mapping**: 5432:5432
 - **Volumes**:
     - postgres-data: Persistent volume for database data
-    - ./init.sql:/docker-entrypoint-initdb.d/init.sql: Initialization script
+    - ./migrations:/docker-entrypoint-initdb.d: Initialization scripts
 
 ### Rust API
 
 - **Type**: Docker container
 - **Build**: Custom Dockerfile in the project root
-- **Base Image**: rust:1.82 (for building), debian:buster-slim (for runtime)
-- **Dependencies**: libssl-dev (for PostgreSQL connectivity)
+- **Base Image**: rust:1.82-slim (for building), debian:bookworm-slim (for runtime)
+- **Dependencies**: libpq5, ca-certificates
 - **Entry Point**: ./api (the compiled Rust binary)
+- **Environment Variables**:
+    - DATABASE_URL
+    - HOST
+    - PORT
+    - RUST_LOG
 
-Note: The API container configuration is not explicitly defined in the provided docker-compose.yaml, but it can be inferred from the Dockerfile and project structure.
+### Prometheus
+
+- **Type**: Docker container
+- **Image**: prom/prometheus:latest
+- **Container Name**: prometheus-container
+- **Volumes**: 
+    - ./prometheus.yml:/etc/prometheus/prometheus.yml
+- **Port Mapping**: 9090:9090
+
+### Grafana
+
+- **Type**: Docker container
+- **Image**: grafana/grafana-oss:latest
+- **Container Name**: grafana-container
+- **Environment Variables**:
+    - GF_SECURITY_ADMIN_USER: admin
+    - GF_SECURITY_ADMIN_PASSWORD: admin
+- **Port Mapping**: 3000:3000
